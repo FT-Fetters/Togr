@@ -10,7 +10,7 @@
   <packaging>pom</packaging>
   <modules>
     <module>TogrServer</module>
-    <module>TogrTarget</module>
+    <module>TogrClient</module>
   </modules>
 
   <properties>

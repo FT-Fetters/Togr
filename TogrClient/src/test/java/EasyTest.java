@@ -78,6 +78,7 @@ public class EasyTest {
       // 判断是否是SocketChannel
       if (!(channel instanceof SocketChannel)) {
         return;
+
       }
       if (!(o instanceof SelectionKey)){
         throw new RuntimeException("obj must be selection key");

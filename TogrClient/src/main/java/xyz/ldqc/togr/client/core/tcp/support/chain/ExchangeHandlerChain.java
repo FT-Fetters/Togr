@@ -6,6 +6,9 @@ import java.nio.ByteBuffer;
 import java.nio.channels.Channel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
+import java.util.Arrays;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.ldqc.tightcall.buffer.AbstractByteData;
 import xyz.ldqc.tightcall.buffer.SimpleByteData;
 import xyz.ldqc.tightcall.chain.Chain;
@@ -19,6 +22,7 @@ import xyz.ldqc.togr.client.exception.ExchangeHandlerException;
  */
 public class ExchangeHandlerChain implements ChannelHandler, InboundChain {
 
+  private static final Logger log = LoggerFactory.getLogger(ExchangeHandlerChain.class);
 
   private Chain nextChain;
 
@@ -52,29 +56,31 @@ public class ExchangeHandlerChain implements ChannelHandler, InboundChain {
     SelectionKey selectionKey = (SelectionKey) o;
     SocketChannel socketChannel = ((SocketChannel) channel);
     AbstractByteData byteData = readDataFromChanel(socketChannel);
-    if (byteData == null){
+    if (byteData == null) {
       selectionKey.cancel();
       return;
     }
+    log.debug("Receive data: {}", byteData);
     DataFrame dataFrame = readDataFrame(byteData);
+
     nextChain.doChain(channel, dataFrame);
   }
 
-  private DataFrame readDataFrame(AbstractByteData byteData){
+  private DataFrame readDataFrame(AbstractByteData byteData) {
     long id = byteData.readLong();
     byte len = byteData.readByte();
     byte[] bytes = byteData.readBytes();
     return new DataFrame(id, bytes);
   }
 
-  private AbstractByteData readDataFromChanel(SocketChannel socketChannel){
+  private AbstractByteData readDataFromChanel(SocketChannel socketChannel) {
     ByteBuffer buffer = ByteBuffer.allocate(127 + 8 + 1);
     try {
       int readLen = socketChannel.read(buffer);
-      if ( readLen == -1) {
+      if (readLen == -1) {
         return null;
       }
-      if (readLen == 0){
+      if (readLen == 0) {
         return new SimpleByteData();
       }
       return new SimpleByteData(buffer);
@@ -82,8 +88,6 @@ public class ExchangeHandlerChain implements ChannelHandler, InboundChain {
       return null;
     }
   }
-
-
 
 
 }

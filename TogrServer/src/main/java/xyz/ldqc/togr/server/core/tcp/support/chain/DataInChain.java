@@ -9,6 +9,8 @@ import java.nio.ByteBuffer;
 import java.nio.channels.Channel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,18 +32,23 @@ import xyz.ldqc.togr.server.exception.ServerTunnelException;
  */
 public class DataInChain implements InboundChain, ChannelHandler {
 
+  private static final Logger log = LoggerFactory.getLogger(DataInChain.class);
+
   private Chain nextChain;
 
   private final ServerTunnel serverTunnel;
 
   private final Map<SocketChannel, Long> clientIdMap;
 
+  private final Map<Long, SocketChannel> idClientMap;
+
   private final SnowflakeUtil snow = SnowflakeUtil.getInstance();
 
 
   public DataInChain(int port) {
     clientIdMap = new ConcurrentHashMap<>();
-    this.serverTunnel = new ServerTunnel(port, clientIdMap);
+    idClientMap = new ConcurrentHashMap<>();
+    this.serverTunnel = new ServerTunnel(port, clientIdMap, idClientMap);
   }
 
   @Override
@@ -60,17 +67,25 @@ public class DataInChain implements InboundChain, ChannelHandler {
 
     clientIdMap.computeIfAbsent(socketChannel, s -> snow.nextId());
     Long clientId = clientIdMap.get(socketChannel);
+    idClientMap.putIfAbsent(clientId, socketChannel);
     SimpleByteData byteData = readDataFromChanel(socketChannel);
     if (byteData == null){
       selectionKey.cancel();
+      SimpleByteData bd = new SimpleByteData();
+      bd.writeBytes("cls".getBytes(StandardCharsets.UTF_8));
+      byte[] bytes = buildSendBytes(bd, clientId);
+      this.serverTunnel.writeTarget(bytes);
       return;
     }
+    log.debug("{} send: {}", socketChannel, byteData);
+
 
     byte[] frameData = buildSendBytes(byteData, clientId);
 
     this.serverTunnel.writeTarget(frameData);
 
   }
+
 
   private SimpleByteData readDataFromChanel(SocketChannel socketChannel){
     ByteBuffer buffer = ByteBuffer.allocate(127);
@@ -119,8 +134,11 @@ public class DataInChain implements InboundChain, ChannelHandler {
 
     private final Map<SocketChannel, Long> clientIdMap;
 
-    public ServerTunnel(int port, Map<SocketChannel, Long> clientIdMap) {
+    private final Map<Long, SocketChannel> idClientMap;
+
+    public ServerTunnel(int port, Map<SocketChannel, Long> clientIdMap, Map<Long, SocketChannel> idClientMap) {
       this.clientIdMap = clientIdMap;
+      this.idClientMap = idClientMap;
       try {
         this.serverSocket = new ServerSocket(port);
       } catch (IOException e) {
@@ -144,11 +162,28 @@ public class DataInChain implements InboundChain, ChannelHandler {
             InputStream inputStream = this.target.getInputStream();
 
             while ((bytesRead = inputStream.read(buffer)) != -1) {
-              SocketChannel socketChannel = (SocketChannel) clientIdMap.keySet().toArray()[0];
+              System.out.println("Read " + bytesRead + " bytes");
+              SimpleByteData byteData = new SimpleByteData();
+              for (int i = 0; i < 9; i++) {
+                byteData.writeByte(buffer[i]);
+              }
+              long id = byteData.readLong();
+              SocketChannel socketChannel = idClientMap.get(id);
+
               ByteBuffer buf = ByteBuffer.allocate(bytesRead);
+              if (bytesRead == 8 + "cls".getBytes().length){
+                byte[] bs = {buffer[8], buffer[9], buffer[10]};
+                if ("cls".equals(new String(bs))){
+                  socketChannel.close();
+                  return;
+                }
+              }
+
               buf.clear();
-              buf.put(buffer,0, bytesRead);
+              buf.put(buffer,9, bytesRead - 9);
               buf.flip();
+              byte[] array = buf.array();
+              log.info("Recieve: {}", new String(array));
               socketChannel.write(buf);
             }
           } catch (IOException e) {
@@ -172,6 +207,7 @@ public class DataInChain implements InboundChain, ChannelHandler {
         OutputStream outputStream = this.target.getOutputStream();
         outputStream.write(data);
         outputStream.flush();
+        log.debug("write data: {}", new String(data));
       } catch (IOException e) {
         throw new ServerTunnelException("Out put data fail: "+ e.getMessage());
       }

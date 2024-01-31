@@ -16,6 +16,8 @@ public class StreamExchangeRunnable implements Runnable {
 
   private static final Logger log = LoggerFactory.getLogger(StreamExchangeRunnable.class);
 
+  private static final String CLOSE_FLAG = "Socket closed";
+
   /**
    * 连接目标服务器的客户端
    */
@@ -57,7 +59,11 @@ public class StreamExchangeRunnable implements Runnable {
       }
       log.info("Client {} closed", socket.getInetAddress());
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      if (e.getMessage().equals(CLOSE_FLAG)){
+        log.info("Client {} closed", socket.getInetAddress());
+      }else {
+        log.error("Client {} closed with exception", socket.getInetAddress(), e);
+      }
     }
   }
 }

@@ -4,9 +4,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.channels.Channel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.ldqc.tightcall.chain.Chain;
 import xyz.ldqc.tightcall.chain.InboundChain;
-import xyz.ldqc.tightcall.chain.OutboundChain;
 import xyz.ldqc.tightcall.server.handler.ChannelHandler;
 import xyz.ldqc.togr.client.core.entity.SendFrame;
 
@@ -15,7 +16,8 @@ import xyz.ldqc.togr.client.core.entity.SendFrame;
  */
 public class PostHandleChain implements InboundChain, ChannelHandler {
 
-  private Chain nextChain;
+  private static final Logger log = LoggerFactory.getLogger(PostHandleChain.class);
+
 
   @Override
   public void doChain(Channel channel, Object o) {
@@ -27,7 +29,7 @@ public class PostHandleChain implements InboundChain, ChannelHandler {
 
   @Override
   public void setNextChain(Chain chain) {
-    this.nextChain = chain;
+    // 没有下一个chain
   }
 
   @Override
@@ -40,7 +42,7 @@ public class PostHandleChain implements InboundChain, ChannelHandler {
       outputStream.write(data);
       outputStream.flush();
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      log.error("Send to target fail", e);
     }
   }
 }

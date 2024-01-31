@@ -1,12 +1,10 @@
 package xyz.ldqc.togr.client.core.tcp.support.chain;
 
 import java.io.IOException;
-import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
-import java.util.Arrays;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import xyz.ldqc.tightcall.buffer.AbstractByteData;
@@ -15,7 +13,6 @@ import xyz.ldqc.tightcall.chain.Chain;
 import xyz.ldqc.tightcall.chain.InboundChain;
 import xyz.ldqc.tightcall.server.handler.ChannelHandler;
 import xyz.ldqc.togr.client.core.entity.DataFrame;
-import xyz.ldqc.togr.client.exception.ExchangeHandlerException;
 
 /**
  * @author Fetters
@@ -26,12 +23,8 @@ public class ExchangeHandlerChain implements ChannelHandler, InboundChain {
 
   private Chain nextChain;
 
-  private Socket target;
-
-  private final int targetPort;
-
-  public ExchangeHandlerChain(int port) {
-    this.targetPort = port;
+  public ExchangeHandlerChain() {
+    // noting to do
   }
 
   @Override
@@ -68,6 +61,7 @@ public class ExchangeHandlerChain implements ChannelHandler, InboundChain {
 
   private DataFrame readDataFrame(AbstractByteData byteData) {
     long id = byteData.readLong();
+    // TODO: 长度判断
     byte len = byteData.readByte();
     byte[] bytes = byteData.readBytes();
     return new DataFrame(id, bytes);

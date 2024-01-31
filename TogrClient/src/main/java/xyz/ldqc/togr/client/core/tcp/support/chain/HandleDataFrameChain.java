@@ -11,9 +11,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import xyz.ldqc.tightcall.buffer.SimpleByteData;
 import xyz.ldqc.tightcall.chain.Chain;
 import xyz.ldqc.tightcall.chain.InboundChain;
@@ -28,7 +29,11 @@ import xyz.ldqc.togr.client.exception.HandleDataFrameException;
  */
 public class HandleDataFrameChain implements ChannelHandler, InboundChain {
 
+  private static final Logger log = LoggerFactory.getLogger(HandleDataFrameChain.class);
+
   private static final String LOCAL_HOST = "127.0.0.1";
+
+  private static final byte[] CLOSE_FLAG = "cls".getBytes(StandardCharsets.UTF_8);
 
   private final int port;
 
@@ -40,8 +45,9 @@ public class HandleDataFrameChain implements ChannelHandler, InboundChain {
 
   public HandleDataFrameChain(int port) {
     this.port = port;
+    int cpu = Runtime.getRuntime().availableProcessors();
     socketStreamPool = new ThreadPoolExecutor(
-        12, Integer.MAX_VALUE, Integer.MAX_VALUE, TimeUnit.SECONDS,
+        cpu * 2, Integer.MAX_VALUE, Integer.MAX_VALUE, TimeUnit.SECONDS,
         new ArrayBlockingQueue<>(128), r -> new Thread(r, "stream-exchange")
     );
   }
@@ -63,18 +69,19 @@ public class HandleDataFrameChain implements ChannelHandler, InboundChain {
     }
     DataFrame dataFrame = (DataFrame) o;
 
-    if (dataFrame.getData().length == "cls".getBytes().length) {
-      // 判断是否是cls
-      if (Arrays.equals(dataFrame.getData(), "cls".getBytes())) {
-        long id = dataFrame.getId();
-        Socket socket = socketMap.get(id);
-        try {
-          socket.close();
-        } catch (IOException e) {
-          throw new RuntimeException(e);
-        }
-        return;
+    if (
+        dataFrame.getData().length == CLOSE_FLAG.length &&
+            (Arrays.equals(dataFrame.getData(), CLOSE_FLAG))
+    ) {
+      long id = dataFrame.getId();
+      try {
+        Socket remove = socketMap.remove(id);
+        remove.close();
+      } catch (IOException e) {
+        log.error("Close fail", e);
       }
+      return;
+
 
     }
 
@@ -107,7 +114,7 @@ public class HandleDataFrameChain implements ChannelHandler, InboundChain {
         try {
           socketChannel.write(buffer);
         } catch (IOException ex) {
-          throw new RuntimeException(ex);
+          log.error("Send close flag fail", ex);
         }
         throw new HandleDataFrameException("Connect fail, " + e.getMessage());
       }

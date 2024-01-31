@@ -24,7 +24,7 @@ public class TcpTunnelClient {
 
   private ChainGroup buildChainGroup(){
     ChainGroup group = new DefaultChannelChainGroup();
-    group.addLast(new ExchangeHandlerChain(targetPort));
+    group.addLast(new ExchangeHandlerChain());
     group.addLast(new HandleDataFrameChain(targetPort));
     group.addLast(new PostHandleChain());
     return group;

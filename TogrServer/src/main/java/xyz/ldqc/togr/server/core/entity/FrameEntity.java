@@ -1,4 +1,4 @@
-package xyz.ldqc.togr.server.core.tcp.support.entity;
+package xyz.ldqc.togr.server.core.entity;
 
 /**
  * @author Fetters

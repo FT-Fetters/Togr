@@ -15,7 +15,14 @@ public class TcpTunnelClient {
 
   private final int targetPort;
 
+  private final String targetIp;
+
   public TcpTunnelClient(String ip, int port, int targetPort) {
+    this(ip, port, "", targetPort);
+  }
+
+  public TcpTunnelClient(String ip, int port,String targetIp ,int targetPort) {
+    this.targetIp = targetIp;
     this.targetPort = targetPort;
     NioClientExec nioClientExec = new NioClientExec(new InetSocketAddress(ip, port));
     nioClientExec.setChainGroup(buildChainGroup());
@@ -25,7 +32,7 @@ public class TcpTunnelClient {
   private ChainGroup buildChainGroup(){
     ChainGroup group = new DefaultChannelChainGroup();
     group.addLast(new ExchangeHandlerChain());
-    group.addLast(new HandleDataFrameChain(targetPort));
+    group.addLast(new HandleDataFrameChain(targetIp, targetPort));
     group.addLast(new PostHandleChain());
     return group;
   }

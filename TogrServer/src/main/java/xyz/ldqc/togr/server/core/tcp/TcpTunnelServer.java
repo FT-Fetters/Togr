@@ -20,7 +20,7 @@ public class TcpTunnelServer implements TunnelServer {
 
   private ChainGroup buildChainGroup(){
     ChainGroup chainGroup = new DefaultChannelChainGroup();
-    chainGroup.addLast(new DataInChain(8888));
+    chainGroup.addLast(new DataInChain(7086));
     return chainGroup;
   }
 

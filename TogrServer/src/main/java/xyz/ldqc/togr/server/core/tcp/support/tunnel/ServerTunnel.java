@@ -28,22 +28,20 @@ public class ServerTunnel implements Runnable {
 
   private Socket target;
 
-  private final Map<Long, SocketChannel> idClientMap;
-
-  private ExecutorService serverSocketExecutor;
+  private final Map<Integer, SocketChannel> idClientMap;
 
   private boolean terminate = false;
 
   private final Object lock = new Object();
 
-  public ServerTunnel(int port, Map<Long, SocketChannel> idClientMap) {
+  public ServerTunnel(int port, Map<Integer, SocketChannel> idClientMap) {
     this.idClientMap = idClientMap;
     try {
       this.serverSocket = new ServerSocket(port);
     } catch (IOException e) {
       throw new ServerTunnelException("Server socket init fail: " + e.getMessage());
     }
-    this.serverSocketExecutor = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
+    ExecutorService serverSocketExecutor = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
         new ArrayBlockingQueue<>(1), r -> new Thread(r, "server-socket"));
     serverSocketExecutor.execute(this);
 
@@ -96,8 +94,8 @@ public class ServerTunnel implements Runnable {
       OutputStream outputStream = this.target.getOutputStream();
       outputStream.write(data);
       outputStream.flush();
-      String dataStr = new String(data);
-      log.debug("write data: {}", dataStr);
+//      String dataStr = new String(data);
+//      log.debug("write data: {}", dataStr);
     } catch (IOException e) {
       this.connectedFlag.set(false);
       refreshConnectStatus();

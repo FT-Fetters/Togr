@@ -5,20 +5,20 @@ package xyz.ldqc.togr.server.core.entity;
  */
 public class FrameEntity {
 
-  private long id;
+  private int id;
 
   private byte[] data;
 
-  public FrameEntity(long id, byte[] data) {
+  public FrameEntity(int id, byte[] data) {
     this.id = id;
     this.data = data;
   }
 
-  public long getId() {
+  public int getId() {
     return id;
   }
 
-  public void setId(long id) {
+  public void setId(int id) {
     this.id = id;
   }
 

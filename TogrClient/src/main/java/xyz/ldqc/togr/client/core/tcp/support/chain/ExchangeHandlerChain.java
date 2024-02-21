@@ -5,6 +5,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.Channel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import xyz.ldqc.tightcall.buffer.AbstractByteData;
@@ -13,6 +14,7 @@ import xyz.ldqc.tightcall.chain.Chain;
 import xyz.ldqc.tightcall.chain.InboundChain;
 import xyz.ldqc.tightcall.server.handler.ChannelHandler;
 import xyz.ldqc.togr.client.core.entity.DataFrame;
+import xyz.ldqc.togr.client.core.tcp.support.cache.NetTransferCache;
 
 /**
  * @author Fetters
@@ -21,10 +23,12 @@ public class ExchangeHandlerChain implements ChannelHandler, InboundChain {
 
   private static final Logger log = LoggerFactory.getLogger(ExchangeHandlerChain.class);
 
+  private final NetTransferCache netTransferCache;
+
   private Chain nextChain;
 
   public ExchangeHandlerChain() {
-    // noting to do
+    netTransferCache = new NetTransferCache();
   }
 
   @Override
@@ -53,22 +57,20 @@ public class ExchangeHandlerChain implements ChannelHandler, InboundChain {
       selectionKey.cancel();
       return;
     }
-    log.debug("Receive data: {}", byteData);
-    DataFrame dataFrame = readDataFrame(byteData);
-
-    nextChain.doChain(channel, dataFrame);
+//    log.debug("Receive data: {}", byteData);
+    List<DataFrame> dataFrames = readDataFrame(byteData);
+    for (DataFrame dataFrame : dataFrames) {
+      nextChain.doChain(channel, dataFrame);
+    }
   }
 
-  private DataFrame readDataFrame(AbstractByteData byteData) {
-    long id = byteData.readLong();
-    // TODO: 长度判断
-    byte len = byteData.readByte();
-    byte[] bytes = byteData.readBytes();
-    return new DataFrame(id, bytes);
+  private List<DataFrame> readDataFrame(AbstractByteData byteData) {
+    netTransferCache.append(byteData.readBytes());
+    return netTransferCache.consume();
   }
 
   private AbstractByteData readDataFromChanel(SocketChannel socketChannel) {
-    ByteBuffer buffer = ByteBuffer.allocate(127 + 8 + 1);
+    ByteBuffer buffer = ByteBuffer.allocate(4096 + 8);
     try {
       int readLen = socketChannel.read(buffer);
       if (readLen == -1) {

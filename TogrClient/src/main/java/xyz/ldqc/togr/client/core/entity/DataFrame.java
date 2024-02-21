@@ -5,11 +5,11 @@ package xyz.ldqc.togr.client.core.entity;
  */
 public class DataFrame {
 
-  private long id;
+  private int id;
 
   private byte[] data;
 
-  public DataFrame(long id, byte[] data) {
+  public DataFrame(int id, byte[] data) {
     this.id = id;
     this.data = data;
   }
@@ -17,11 +17,11 @@ public class DataFrame {
   public DataFrame() {
   }
 
-  public long getId() {
+  public int getId() {
     return id;
   }
 
-  public void setId(long id) {
+  public void setId(int id) {
     this.id = id;
   }
 

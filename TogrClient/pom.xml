@@ -26,4 +26,47 @@
     </dependency>
   </dependencies>
 
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>xyz.ldqc.togr.client.boot.TogrClientMainBoot</mainClass>
+              <addClasspath>true</addClasspath>
+              <!-- 指定依赖的时候声明前缀 -->
+              <classpathPrefix>./lib/</classpathPrefix>
+              <!--依赖是否使用带有时间戳的唯一版本号,如:xxx-1.3.0-20121225.012733.jar-->
+              <useUniqueVersions>false</useUniqueVersions>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>copy</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy-dependencies</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/lib</outputDirectory>
+              <!--已存在的Release版本不重复copy-->
+              <overWriteReleases>false</overWriteReleases>
+              <!--已存在的SnapShot版本不重复copy-->
+              <overWriteSnapshots>false</overWriteSnapshots>
+              <!--不存在或者有更新版本的依赖才copy-->
+              <overWriteIfNewer>true</overWriteIfNewer>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
 </project>

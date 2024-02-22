@@ -7,9 +7,9 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import xyz.ldqc.tightcall.buffer.SimpleByteData;
 
 /**
  * @author Fetters
@@ -18,9 +18,12 @@ public class StreamExchangeRunnable implements Runnable {
 
     private static final Logger log = LoggerFactory.getLogger(StreamExchangeRunnable.class);
 
-    private static final String CLOSE_FLAG = "Socket closed";
+    private static final String CLOSE_FLAG_MSG = "Socket closed";
 
     private static final byte[] MAGIC_NUM = "TOGR".getBytes(StandardCharsets.UTF_8);
+
+    private static final byte[] CLOSE_FLAG = "cls".getBytes(StandardCharsets.UTF_8);
+
 
     /**
      * 连接目标服务器的客户端
@@ -38,10 +41,8 @@ public class StreamExchangeRunnable implements Runnable {
 
     private final CountDownLatch connectLock;
 
-    private static final AtomicLong TOTAL_WRITE = new AtomicLong(0);
-    private static final AtomicLong TOTAL_READ = new AtomicLong(0);
-
-    public StreamExchangeRunnable(Socket socket, int id, SocketChannel channel, CountDownLatch connectLock) {
+    public StreamExchangeRunnable(Socket socket, int id, SocketChannel channel,
+        CountDownLatch connectLock) {
         this.socket = socket;
         this.channel = channel;
         this.id = id;
@@ -63,26 +64,46 @@ public class StreamExchangeRunnable implements Runnable {
             InputStream inputStream = this.socket.getInputStream();
             while ((bytesRead = inputStream.read(buffer)) != -1) {
                 // 从目标服务器返回的数据
-                log.debug("Read {} bytes from target", bytesRead);
-                log.debug("total read {}", TOTAL_READ.addAndGet(bytesRead));
-//        String content = new String(buffer, 0, bytesRead);
-//        log.debug("Read content: {}", content);
                 byteBuffer.clear();
                 byteBuffer.put(MAGIC_NUM);
                 byteBuffer.put(int2TwoByte(id));
                 byteBuffer.put(int2TwoByte(bytesRead));
                 byteBuffer.put(buffer, 0, bytesRead);
                 byteBuffer.flip();
-                int write = channel.write(byteBuffer);
-                log.debug("total write {}", TOTAL_WRITE.addAndGet(write));
+                writeToChannel(byteBuffer);
             }
             log.info("Client {} closed", socket.getInetAddress());
+            sendClsFlag();
         } catch (IOException e) {
-            if (e.getMessage().equals(CLOSE_FLAG)) {
+            if (e.getMessage().equals(CLOSE_FLAG_MSG)) {
                 log.info("Server close connection");
             } else {
                 log.error("Client {} closed with exception", socket.getInetAddress(), e);
             }
+        }
+    }
+
+    private void sendClsFlag() {
+        SimpleByteData byteData = new SimpleByteData();
+        byteData.writeBytes(MAGIC_NUM).writeBytes(int2TwoByte(id))
+            .writeBytes(int2TwoByte(CLOSE_FLAG.length))
+            .writeBytes("cls".getBytes(StandardCharsets.UTF_8));
+        ByteBuffer clsBuffer = ByteBuffer.allocate(byteData.remaining());
+        clsBuffer.clear();
+        clsBuffer.put(byteData.readBytes());
+        clsBuffer.flip();
+        try {
+            channel.write(clsBuffer);
+        } catch (IOException ex) {
+            log.error("Send close flag fail", ex);
+        }
+    }
+
+    private void writeToChannel(ByteBuffer buffer) throws IOException {
+        int remaining = buffer.remaining();
+        while (remaining > 0) {
+            int write = channel.write(buffer);
+            remaining -= write;
         }
     }
 

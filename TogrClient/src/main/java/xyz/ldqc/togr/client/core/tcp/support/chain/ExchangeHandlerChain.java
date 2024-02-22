@@ -81,6 +81,7 @@ public class ExchangeHandlerChain implements ChannelHandler, InboundChain {
       }
       return new SimpleByteData(buffer);
     } catch (IOException e) {
+      log.error("readDataFromChanel error", e);
       return null;
     }
   }

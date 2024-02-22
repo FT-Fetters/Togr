@@ -9,13 +9,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor.AbortPolicy;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import xyz.ldqc.tightcall.buffer.SimpleByteData;
@@ -35,6 +33,8 @@ public class IntranetClientExecutor implements Runnable {
 
     private static final int CLOSE_FLAG_LEN = CLOSE_FLAG.length;
 
+    private static final String PIPE_BREAK_MSG = "Broken pipe";
+
     private Socket intranetClient;
     private final Map<Integer, SocketChannel> idIndexRequestClient;
 
@@ -45,8 +45,6 @@ public class IntranetClientExecutor implements Runnable {
     private final ServerTunnel serverTunnel;
 
     private final NetTransferCache netTransferCache;
-
-    private final AtomicLong transCount = new AtomicLong(0);
 
     public IntranetClientExecutor(Socket intranetClient,
         Map<Integer, SocketChannel> idIndexRequestClient, ServerTunnel serverTunnel) {
@@ -66,7 +64,7 @@ public class IntranetClientExecutor implements Runnable {
         try {
             doExchange();
         } catch (IOException e) {
-            if ("Broken pipe".equals(e.getMessage())) {
+            if (PIPE_BREAK_MSG.equals(e.getMessage())) {
                 run();
                 return;
             }
@@ -88,6 +86,7 @@ public class IntranetClientExecutor implements Runnable {
                 SocketChannel socketChannel = idIndexRequestClient.get(id);
                 if (data.length == CLOSE_FLAG_LEN && isCloseFlag(buffer)) {
                     socketChannel.close();
+                    log.info("request client {} close", socketChannel);
                     continue;
                 }
                 writeBackToRequestClient(data, socketChannel);
@@ -96,7 +95,6 @@ public class IntranetClientExecutor implements Runnable {
     }
 
     private List<FrameEntity> doRead(int bytesRead, byte[] buffer) {
-        log.debug("Read {} bytes", bytesRead);
         SimpleByteData byteData = new SimpleByteData();
         for (int i = 0; i < bytesRead; i++) {
             byteData.writeByte(buffer[i]);
@@ -118,10 +116,17 @@ public class IntranetClientExecutor implements Runnable {
             log.debug("null");
             return;
         }
-        int write = reqClient.write(byteBuffer);
-        log.debug("write back to request client {} ,{} bytes", reqClient.getRemoteAddress(), write);
-        log.debug("total write back {} bytes", transCount.addAndGet(write));
+        doWriteBackToRequestClient(reqClient);
 
+    }
+
+    private void doWriteBackToRequestClient(SocketChannel reqClient) throws IOException {
+        int remaining = byteBuffer.remaining();
+
+        while (remaining > 0) {
+            int write = reqClient.write(byteBuffer);
+            remaining -= write;
+        }
     }
 
     public void refreshClient(Socket intranetClient) {

@@ -1,13 +1,8 @@
 package xyz.ldqc.togr.client.core.tcp.support.chain;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.InterfaceAddress;
-import java.net.Proxy;
-import java.net.Proxy.Type;
 import java.net.Socket;
-import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channel;
 import java.nio.channels.SocketChannel;
@@ -30,7 +25,6 @@ import xyz.ldqc.tightcall.server.handler.ChannelHandler;
 import xyz.ldqc.togr.client.core.entity.DataFrame;
 import xyz.ldqc.togr.client.core.entity.SendFrame;
 import xyz.ldqc.togr.client.core.tcp.support.run.StreamExchangeRunnable;
-import xyz.ldqc.togr.client.exception.HandleDataFrameException;
 
 /**
  * @author Fetters
@@ -67,7 +61,8 @@ public class HandleDataFrameChain implements ChannelHandler, InboundChain {
         int cpu = Runtime.getRuntime().availableProcessors();
         socketStreamPool = new ThreadPoolExecutor(
             cpu * 2, Integer.MAX_VALUE, Integer.MAX_VALUE, TimeUnit.SECONDS,
-            new ArrayBlockingQueue<>(128), r -> new Thread(r, "stream-exchange-" + exchangeId.getAndIncrement())
+            new ArrayBlockingQueue<>(128),
+            r -> new Thread(r, "stream-exchange-" + exchangeId.getAndIncrement())
         );
     }
 
@@ -96,7 +91,9 @@ public class HandleDataFrameChain implements ChannelHandler, InboundChain {
             int id = dataFrame.getId();
             try {
                 Socket remove = socketMap.remove(id);
-                remove.close();
+                if (remove != null) {
+                    remove.close();
+                }
             } catch (IOException e) {
                 log.error("Close fail", e);
             }
@@ -127,28 +124,32 @@ public class HandleDataFrameChain implements ChannelHandler, InboundChain {
                 newSocket.connect(new InetSocketAddress(this.ip, this.port));
                 return newSocket;
             } catch (IOException e) {
-                SimpleByteData byteData = new SimpleByteData();
-                byteData.writeBytes(MAGIC_NUM).writeBytes(int2TwoByte(id))
-                    .writeBytes(int2TwoByte(CLOSE_FLAG.length))
-                    .writeBytes("cls".getBytes(StandardCharsets.UTF_8));
-                ByteBuffer buffer = ByteBuffer.allocate(byteData.remaining());
-                buffer.clear();
-                buffer.put(byteData.readBytes());
-                buffer.flip();
-                try {
-                    channel.write(buffer);
-                } catch (IOException ex) {
-                    log.error("Send close flag fail", ex);
-                }
+                sendClsFlag(channel, id);
                 log.error("Connect fail, {}", e.getMessage());
                 return null;
-            }finally {
+            } finally {
                 connectLock.countDown();
             }
         } else {
             return socket;
         }
 
+    }
+
+    private void sendClsFlag(SocketChannel channel, int id) {
+        SimpleByteData byteData = new SimpleByteData();
+        byteData.writeBytes(MAGIC_NUM).writeBytes(int2TwoByte(id))
+            .writeBytes(int2TwoByte(CLOSE_FLAG.length))
+            .writeBytes("cls".getBytes(StandardCharsets.UTF_8));
+        ByteBuffer buffer = ByteBuffer.allocate(byteData.remaining());
+        buffer.clear();
+        buffer.put(byteData.readBytes());
+        buffer.flip();
+        try {
+            channel.write(buffer);
+        } catch (IOException ex) {
+            log.error("Send close flag fail", ex);
+        }
     }
 
     private byte[] int2TwoByte(int i) {

@@ -5,31 +5,31 @@ package xyz.ldqc.togr.client.core.entity;
  */
 public class DataFrame {
 
-  private int id;
+    private int id;
 
-  private byte[] data;
+    private byte[] data;
 
-  public DataFrame(int id, byte[] data) {
-    this.id = id;
-    this.data = data;
-  }
+    public DataFrame(int id, byte[] data) {
+        this.id = id;
+        this.data = data;
+    }
 
-  public DataFrame() {
-  }
+    public DataFrame() {
+    }
 
-  public int getId() {
-    return id;
-  }
+    public int getId() {
+        return id;
+    }
 
-  public void setId(int id) {
-    this.id = id;
-  }
+    public void setId(int id) {
+        this.id = id;
+    }
 
-  public byte[] getData() {
-    return data;
-  }
+    public byte[] getData() {
+        return data;
+    }
 
-  public void setData(byte[] data) {
-    this.data = data;
-  }
+    public void setData(byte[] data) {
+        this.data = data;
+    }
 }

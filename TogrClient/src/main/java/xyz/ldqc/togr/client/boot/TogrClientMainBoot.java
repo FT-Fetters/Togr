@@ -9,24 +9,24 @@ import xyz.ldqc.togr.client.core.tcp.TcpTunnelClient;
  */
 public class TogrClientMainBoot {
 
-  private static final Logger log = LoggerFactory.getLogger(TogrClientMainBoot.class);
+    private static final Logger log = LoggerFactory.getLogger(TogrClientMainBoot.class);
 
-  private static final int ARG_LEN = 4;
+    private static final int ARG_LEN = 4;
 
-  public static void main(String[] args) {
-    if (args.length < ARG_LEN){
-      log.info("Miss arg");
-      return;
+    public static void main(String[] args) {
+        if (args.length < ARG_LEN) {
+            log.info("Miss arg");
+            return;
+        }
+        try {
+            String serverAddress = args[0];
+            int serverPort = Integer.parseInt(args[1]);
+            String targetAddress = args[2];
+            int targetPort = Integer.parseInt(args[3]);
+            new TcpTunnelClient(serverAddress, serverPort, targetAddress, targetPort);
+        } catch (Exception e) {
+            log.error("Boot fail: {}", e.getMessage());
+        }
     }
-    try {
-      String serverAddress = args[0];
-      int serverPort = Integer.parseInt(args[1]);
-      String targetAddress = args[2];
-      int targetPort = Integer.parseInt(args[3]);
-      new TcpTunnelClient(serverAddress, serverPort, targetAddress, targetPort);
-    }catch (Exception e){
-      log.error("Boot fail: {}", e.getMessage());
-    }
-  }
 
 }
